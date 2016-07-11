@@ -5,20 +5,14 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
-var port int
 var dest string
-var host string
 var verbosity int
 
 func init() {
 	flag.StringVar(&dest, "dest", "localhost", "host:port to connect")
-	flag.StringVar(&host, "host", "localhost", "host to connect")
-	flag.IntVar(&port, "port", 8080, "port number to connect to")
 	flag.IntVar(&verbosity, "verbosity", 0, "Verbosity level")
 	flag.Parse()
 }
@@ -37,10 +31,6 @@ func main() {
 	if err != nil {
 		fmt.Println("net.ResolveTCPAddr", err)
 		return
-	}
-
-	if strings.Index(dest, ":") == -1 {
-		dest += ":" + strconv.Itoa(port)
 	}
 
 	SogPrintln(dest)
