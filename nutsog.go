@@ -1,45 +1,121 @@
 package main
 
 import (
-	"fmt"
 	"flag"
-	"os"
+	"fmt"
 	"net"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var port int
 var dest string
+var host string
 
 func init() {
 	flag.StringVar(&dest, "dest", "localhost", "host:port to connect")
+	flag.StringVar(&host, "host", "localhost", "host to connect")
 	flag.IntVar(&port, "port", 8080, "port number to connect to")
 	flag.Parse()
 }
 
+func SogPrintln(a ...interface{}) (n int, err error) {
+	return fmt.Println(a)
+}
+
 func main() {
-	var name string
-	name = os.Args[0]
-	fmt.Println(name)
+	SogPrintln(os.Args[0])
 
-	net.LookupIP(dest)
-
-	var conn, err = net.Dial("tcp", dest)
-	if (err != nil) {
-		fmt.Println("net.Dial error:", err)
+	_, err := net.ResolveTCPAddr("tcp", dest)
+	if err != nil {
+		fmt.Println("net.ResolveTCPAddr", err)
+		return
 	}
 
-	fmt.Println(conn)
-
-	fmt.Println("LocalAddr", conn.LocalAddr())
-	fmt.Println("RemoteAddr", conn.RemoteAddr())
-
-	var n int
-	n, err = conn.Write(toBytes("Happy\n"))
-	if (err != nil) {
-		fmt.Println("conn.Write error:", err)
+	if strings.Index(dest, ":") == -1 {
+		dest += ":" + strconv.Itoa(port)
 	}
 
-	fmt.Println("Wrote", n, "bytes")
+	SogPrintln(dest)
+
+	var conn, err2 = net.Dial("tcp", dest)
+	if err2 != nil {
+		fmt.Println("net.Dial error:", err2)
+	}
+
+	SogPrintln(conn.LocalAddr(), " -> ", conn.RemoteAddr())
+
+	loop(conn)
+}
+
+func loop(conn net.Conn) {
+	errCh := make(chan error)
+	readCh := make(chan int)
+
+	errStd := make(chan error)
+	readStd := make(chan int)
+
+	var b [512]byte
+	var bStd [512]byte
+	go handleRead(conn, errCh, readCh, b[0:])
+	go handleRead(os.Stdin, errStd, readStd, bStd[0:])
+
+	for {
+		select {
+		case err := <-errCh:
+			SogPrintln("Error Conn", err)
+			conn.Close()
+			time.Sleep(10)
+			return
+		case n := <-readCh:
+			SogPrintln("Read", n)
+			fmt.Print("Read ", string(b[0:n]))
+			go os.Stdout.Write(b[0:n])
+		case err := <-errStd:
+			SogPrintln("Error Std", err)
+			os.Stdin.Close()
+			time.Sleep(10)
+			return
+		case n := <-readStd:
+			SogPrintln("Read", n)
+			fmt.Print("Read ", string(bStd[0:n]))
+			go handleWrite(conn, errCh, bStd[0:n])
+		}
+	}
+}
+
+type SogConn interface {
+	Read(b []byte) (n int, err error)
+
+	Write(b []byte) (n int, err error)
+
+	Close() error
+}
+
+func handleWrite(conn SogConn, errCh chan error, b []byte) {
+	tot := len(b)
+	n, err := conn.Write(b)
+	if err != nil {
+		errCh <- err
+		if n != tot {
+			SogPrintln("Short write", n, "of", tot, "bytes")
+		}
+	}
+}
+
+func handleRead(conn SogConn, errCh chan error, ch chan int, b []byte) {
+
+	for {
+		n, err := conn.Read(b)
+		if err != nil {
+			errCh <- err
+			break
+		}
+
+		ch <- n
+	}
 }
 
 func toBytes(s string) []byte {
