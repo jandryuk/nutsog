@@ -13,16 +13,21 @@ import (
 var port int
 var dest string
 var host string
+var verbosity int
 
 func init() {
 	flag.StringVar(&dest, "dest", "localhost", "host:port to connect")
 	flag.StringVar(&host, "host", "localhost", "host to connect")
 	flag.IntVar(&port, "port", 8080, "port number to connect to")
+	flag.IntVar(&verbosity, "verbosity", 0, "Verbosity level")
 	flag.Parse()
 }
 
 func SogPrintln(a ...interface{}) (n int, err error) {
-	return fmt.Println(a)
+	if verbosity > 0 {
+		return fmt.Println(a)
+	}
+	return 0, nil
 }
 
 func main() {
