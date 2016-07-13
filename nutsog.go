@@ -17,6 +17,10 @@ func init() {
 	flag.Parse()
 }
 
+func StderrPrintln(a ...interface{}) (n int, err error) {
+	return fmt.Fprintln(os.Stderr, a)
+}
+
 func SogPrintln(a ...interface{}) (n int, err error) {
 	if verbosity > 0 {
 		return fmt.Println(a)
@@ -47,15 +51,15 @@ func main() {
 
 func loop(conn net.Conn) {
 	errCh := make(chan error)
-	readCh := make(chan int)
+	netCh := make(chan []byte)
 
 	errStd := make(chan error)
-	readStd := make(chan int)
+	stdCh := make(chan []byte)
 
-	var b [512]byte
-	var bStd [512]byte
-	go handleRead(conn, errCh, readCh, b[0:])
-	go handleRead(os.Stdin, errStd, readStd, bStd[0:])
+	go handleReadBuf(os.Stdin, errStd, stdCh)
+	go handleReadBuf(conn, errCh, netCh)
+
+	var netTot, stdTot int
 
 	for {
 		select {
@@ -64,19 +68,19 @@ func loop(conn net.Conn) {
 			conn.Close()
 			time.Sleep(10)
 			return
-		case n := <-readCh:
-			SogPrintln("Read", n)
-			fmt.Print("Read ", string(b[0:n]))
-			go os.Stdout.Write(b[0:n])
+		case buf := <-netCh:
+			netTot += len(buf)
+			StderrPrintln("NetRead", len(buf), netTot)
+			go handleWrite(os.Stdout, errStd, buf)
 		case err := <-errStd:
 			SogPrintln("Error Std", err)
 			os.Stdin.Close()
 			time.Sleep(10)
 			return
-		case n := <-readStd:
-			SogPrintln("Read", n)
-			fmt.Print("Read ", string(bStd[0:n]))
-			go handleWrite(conn, errCh, bStd[0:n])
+		case buf := <-stdCh:
+			stdTot += len(buf)
+			StderrPrintln("StdRead", len(buf), stdTot)
+			go handleWrite(conn, errCh, buf)
 		}
 	}
 }
@@ -100,16 +104,18 @@ func handleWrite(conn SogConn, errCh chan error, b []byte) {
 	}
 }
 
-func handleRead(conn SogConn, errCh chan error, ch chan int, b []byte) {
+func handleReadBuf(conn SogConn, errCh chan error, ch chan []byte) {
+
+	var b [512]byte
 
 	for {
-		n, err := conn.Read(b)
+		n, err := conn.Read(b[0:])
 		if err != nil {
 			errCh <- err
 			break
 		}
 
-		ch <- n
+		ch <- b[0:n]
 	}
 }
 
