@@ -58,7 +58,7 @@ func loop(conn net.Conn) {
 	stdCh := make(chan []byte)
 
 	go handleReadBuf(os.Stdin, conn, errStd, stdCh)
-	go handleReadBuf(conn, os.Stdin, errNet, netCh)
+	go handleReadBuf(conn, os.Stdout, errNet, netCh)
 
 	var netTot, stdTot int
 
