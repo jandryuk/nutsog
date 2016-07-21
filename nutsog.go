@@ -42,6 +42,7 @@ func main() {
 	var conn, err2 = net.Dial("tcp", dest)
 	if err2 != nil {
 		fmt.Println("net.Dial error:", err2)
+		return
 	}
 
 	SogPrintln(conn.LocalAddr(), " -> ", conn.RemoteAddr())
