@@ -60,8 +60,6 @@ func loop(conn net.Conn) {
 	go handleReadBuf(os.Stdin, conn, errStd, stdCh)
 	go handleReadBuf(conn, os.Stdout, errNet, netCh)
 
-	var netTot, stdTot int
-
 	for {
 		select {
 		case err := <-errNet:
@@ -69,19 +67,11 @@ func loop(conn net.Conn) {
 			conn.Close()
 			time.Sleep(10)
 			return
-		case buf := <-netCh:
-			netTot += len(buf)
-			StderrPrintln("NetRead", len(buf), netTot)
-			go handleWrite(os.Stdout, errStd, buf)
 		case err := <-errStd:
 			SogPrintln("Error Std", err)
 			os.Stdin.Close()
 			time.Sleep(10)
 			return
-		case buf := <-stdCh:
-			stdTot += len(buf)
-			StderrPrintln("StdRead", len(buf), stdTot)
-			go handleWrite(conn, errNet, buf)
 		}
 	}
 }
