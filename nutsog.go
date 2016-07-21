@@ -51,20 +51,20 @@ func main() {
 }
 
 func loop(conn net.Conn) {
-	errCh := make(chan error)
+	errNet := make(chan error)
 	netCh := make(chan []byte)
 
 	errStd := make(chan error)
 	stdCh := make(chan []byte)
 
 	go handleReadBuf(os.Stdin, conn, errStd, stdCh)
-	go handleReadBuf(conn, os.Stdin, errCh, netCh)
+	go handleReadBuf(conn, os.Stdin, errNet, netCh)
 
 	var netTot, stdTot int
 
 	for {
 		select {
-		case err := <-errCh:
+		case err := <-errNet:
 			SogPrintln("Error Conn", err)
 			conn.Close()
 			time.Sleep(10)
@@ -81,7 +81,7 @@ func loop(conn net.Conn) {
 		case buf := <-stdCh:
 			stdTot += len(buf)
 			StderrPrintln("StdRead", len(buf), stdTot)
-			go handleWrite(conn, errCh, buf)
+			go handleWrite(conn, errNet, buf)
 		}
 	}
 }
