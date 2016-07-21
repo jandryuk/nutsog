@@ -57,8 +57,8 @@ func loop(conn net.Conn) {
 	errStd := make(chan error)
 	stdCh := make(chan []byte)
 
-	go handleReadBuf(os.Stdin, errStd, stdCh)
-	go handleReadBuf(conn, errCh, netCh)
+	go handleReadBuf(os.Stdin, conn, errStd, stdCh)
+	go handleReadBuf(conn, os.Stdin, errCh, netCh)
 
 	var netTot, stdTot int
 
@@ -105,7 +105,7 @@ func handleWrite(conn SogConn, errCh chan error, b []byte) {
 	}
 }
 
-func handleReadBuf(conn SogConn, errCh chan error, ch chan []byte) {
+func handleReadBuf(conn SogConn, wconn SogConn, errCh chan error, ch chan []byte) {
 
 	var b [512]byte
 
@@ -116,7 +116,10 @@ func handleReadBuf(conn SogConn, errCh chan error, ch chan []byte) {
 			break
 		}
 
-		ch <- b[0:n]
+		buf := make([]byte, n)
+		copy(buf, b[:n])
+
+		handleWrite(wconn, errCh, buf)
 	}
 }
 
