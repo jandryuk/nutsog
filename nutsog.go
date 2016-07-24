@@ -94,19 +94,15 @@ func handleWrite(conn SogConn, errCh chan error, b []byte) {
 
 func handleReadBuf(conn SogConn, wconn SogConn, errCh chan error) {
 
-	var b [512]byte
-
 	for {
-		n, err := conn.Read(b[0:])
+		b := make([]byte, 512)
+		n, err := conn.Read(b)
 		if err != nil {
 			errCh <- err
 			break
 		}
 
-		buf := make([]byte, n)
-		copy(buf, b[:n])
-
-		handleWrite(wconn, errCh, buf)
+		handleWrite(wconn, errCh, b[:n])
 	}
 }
 
